@@ -148,16 +148,17 @@ router.patch('/:id', auth, async (req, res) => {
       }
     }
 
-    const { title, description, assignedTo, status, priority, dueDate, tags } = req.body;
-    const update = { status };
-    // Only admins can reassign tasks or change all fields
-    if (req.user.role === 'admin') {
-      Object.assign(update, { title, description, assignedTo, priority, dueDate, tags });
-    } else {
-      // Members can update title, description, priority, dueDate, tags on their own tasks
-      Object.assign(update, { title, description, priority, dueDate, tags });
+    const body = req.body;
+    const adminFields = ['title', 'description', 'assignedTo', 'status', 'priority', 'dueDate', 'tags'];
+    const memberFields = ['title', 'description', 'status', 'priority', 'dueDate', 'tags'];
+    const allowed = req.user.role === 'admin' ? adminFields : memberFields;
+
+    // Only apply fields that were explicitly sent in the request body
+    for (const field of allowed) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        task[field] = body[field];
+      }
     }
-    Object.assign(task, update);
     await task.save();
 
     await task.populate('assignedTo', 'name email');
