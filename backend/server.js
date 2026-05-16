@@ -6,7 +6,18 @@ require('dotenv').config();
 const app = express();
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    const allowed = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ];
+    // Allow Railway domains, no-origin requests (mobile/Postman), and local dev
+    if (!origin || allowed.includes(origin) || origin.endsWith('.railway.app') || origin.endsWith('.up.railway.app')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // allow all in production for now
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
