@@ -3,13 +3,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, FolderKanban, CheckSquare, Users,
-  LogOut, Zap, Menu, X, ChevronRight, Bell, Settings
+  LogOut, Zap, Menu, X, ChevronRight, Bell, Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+const getNavItems = (role) => [
+  { path: '/dashboard', icon: LayoutDashboard, label: role === 'admin' ? 'Admin Dashboard' : 'Dashboard' },
   { path: '/projects', icon: FolderKanban, label: 'Projects' },
   { path: '/tasks', icon: CheckSquare, label: 'My Tasks' },
   { path: '/team', icon: Users, label: 'Team' },
@@ -27,6 +27,7 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const navItems = getNavItems(user?.role);
 
   const handleLogout = () => {
     logout();
@@ -34,13 +35,14 @@ export default function Layout({ children }) {
     navigate('/login');
   };
 
+  const currentNav = navItems.find(n => location.pathname === n.path || (n.path !== '/dashboard' && location.pathname.startsWith(n.path)));
+  const pageTitle = location.pathname === '/profile' ? 'Profile' : (currentNav?.label || 'TaskFlow');
+
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">
-      {/* Background orbs */}
       <div className="orb orb-1 opacity-10" />
       <div className="orb orb-2 opacity-10" />
 
-      {/* Mobile overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -65,7 +67,10 @@ export default function Layout({ children }) {
           </div>
           <div>
             <span className="text-lg font-bold gradient-text font-['Space_Grotesk']">TaskFlow</span>
-            <div className="text-xs text-slate-500 capitalize">{user?.role}</div>
+            <div className="text-xs text-slate-500 flex items-center gap-1">
+              {user?.role === 'admin' && <Shield size={10} className="text-purple-400" />}
+              <span className="capitalize">{user?.role}</span>
+            </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden text-slate-500 hover:text-white">
             <X size={18} />
@@ -102,9 +107,11 @@ export default function Layout({ children }) {
         {/* User card */}
         <div className="p-4 border-t border-white/5">
           <div className="glass rounded-2xl p-3 flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name)} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}>
-              {getInitials(user?.name)}
-            </div>
+            <Link to="/profile" onClick={() => setSidebarOpen(false)}>
+              <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name)} flex items-center justify-center text-xs font-bold text-white flex-shrink-0 cursor-pointer hover:scale-105 transition-transform`}>
+                {getInitials(user?.name)}
+              </div>
+            </Link>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-white truncate">{user?.name}</div>
               <div className="text-xs text-slate-500 capitalize">{user?.role}</div>
@@ -133,11 +140,9 @@ export default function Layout({ children }) {
 
           <div className="flex-1">
             <div className="text-slate-500 text-xs capitalize">
-              {navItems.find(n => location.pathname.startsWith(n.path))?.label || 'TaskFlow'}
+              {location.pathname === '/profile' ? 'Account' : (currentNav?.label || 'TaskFlow')}
             </div>
-            <h1 className="text-white font-semibold text-lg leading-tight">
-              {navItems.find(n => location.pathname === n.path || (n.path !== '/dashboard' && location.pathname.startsWith(n.path)))?.label || 'Overview'}
-            </h1>
+            <h1 className="text-white font-semibold text-lg leading-tight">{pageTitle}</h1>
           </div>
 
           <div className="flex items-center gap-2">
@@ -148,16 +153,18 @@ export default function Layout({ children }) {
             >
               <Bell size={16} />
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-9 h-9 glass rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            >
-              <Settings size={16} />
-            </motion.button>
-            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name)} flex items-center justify-center text-xs font-bold text-white cursor-pointer`}>
-              {getInitials(user?.name)}
-            </div>
+
+            {/* Profile avatar button */}
+            <Link to="/profile">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                title="View profile"
+                className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name)} flex items-center justify-center text-xs font-bold text-white cursor-pointer ring-2 ring-transparent hover:ring-indigo-500/50 transition-all ${location.pathname === '/profile' ? 'ring-indigo-500/70' : ''}`}
+              >
+                {getInitials(user?.name)}
+              </motion.div>
+            </Link>
           </div>
         </header>
 

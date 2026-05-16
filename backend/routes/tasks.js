@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Task = require('../models/Task');
 const Project = require('../models/Project');
+const User = require('../models/User');
 
 const hasProjectAccess = async (projectId, userId) => {
   const project = await Project.findById(projectId);
@@ -10,14 +11,73 @@ const hasProjectAccess = async (projectId, userId) => {
   return project.owner.equals(userId) || project.members.some(m => m.equals(userId));
 };
 
-// GET /api/tasks?project=id
+// GET /api/tasks/dashboard/stats  ← MUST be before /:id
+router.get('/dashboard/stats', auth, async (req, res) => {
+  try {
+    const now = new Date();
+
+    if (req.user.role === 'admin') {
+      const [allTasks, allUsers] = await Promise.all([
+        Task.find().populate('assignedTo', 'name email'),
+        User.find().select('name email')
+      ]);
+
+      const userStats = allUsers.map(u => {
+        const userTasks = allTasks.filter(t => t.assignedTo?._id.equals(u._id));
+        return {
+          _id: u._id,
+          name: u.name,
+          email: u.email,
+          total: userTasks.length,
+          done: userTasks.filter(t => t.status === 'done').length,
+          inProgress: userTasks.filter(t => t.status === 'in-progress').length,
+          overdue: userTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== 'done').length,
+        };
+      });
+
+      return res.json({
+        total: allTasks.length,
+        todo: allTasks.filter(t => t.status === 'todo').length,
+        inProgress: allTasks.filter(t => t.status === 'in-progress').length,
+        review: allTasks.filter(t => t.status === 'review').length,
+        done: allTasks.filter(t => t.status === 'done').length,
+        overdue: allTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== 'done').length,
+        critical: allTasks.filter(t => t.priority === 'critical' && t.status !== 'done').length,
+        totalUsers: allUsers.length,
+        userStats,
+      });
+    }
+
+    // Member: only their assigned tasks
+    const myTasks = await Task.find({ assignedTo: req.user._id });
+    res.json({
+      total: myTasks.length,
+      todo: myTasks.filter(t => t.status === 'todo').length,
+      inProgress: myTasks.filter(t => t.status === 'in-progress').length,
+      review: myTasks.filter(t => t.status === 'review').length,
+      done: myTasks.filter(t => t.status === 'done').length,
+      overdue: myTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== 'done').length,
+      critical: myTasks.filter(t => t.priority === 'critical' && t.status !== 'done').length,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/tasks
 router.get('/', auth, async (req, res) => {
   try {
     const filter = {};
-    if (req.query.project) filter.project = req.query.project;
-    if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
+    if (req.query.project) {
+      filter.project = req.query.project;
+    } else if (req.user.role !== 'admin') {
+      // Members only see their assigned tasks when no project filter
+      filter.assignedTo = req.user._id;
+    }
     if (req.query.status) filter.status = req.query.status;
     if (req.query.priority) filter.priority = req.query.priority;
+    // Admin can explicitly filter by assignee
+    if (req.user.role === 'admin' && req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
 
     const tasks = await Task.find(filter)
       .populate('assignedTo', 'name email')
@@ -34,11 +94,16 @@ router.get('/', auth, async (req, res) => {
 // POST /api/tasks
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, description, project, assignedTo, status, priority, dueDate, tags } = req.body;
+    let { title, description, project, assignedTo, status, priority, dueDate, tags } = req.body;
     if (!title || !project) return res.status(400).json({ message: 'Title and project required' });
 
     const access = await hasProjectAccess(project, req.user._id);
-    if (!access) return res.status(403).json({ message: 'No access to this project' });
+    if (!access && req.user.role !== 'admin') return res.status(403).json({ message: 'No access to this project' });
+
+    // Members can only assign to themselves
+    if (req.user.role !== 'admin' && assignedTo && assignedTo !== req.user._id.toString()) {
+      assignedTo = req.user._id;
+    }
 
     const task = await Task.create({
       title, description, project, assignedTo, status, priority, dueDate, tags,
@@ -74,8 +139,25 @@ router.patch('/:id', auth, async (req, res) => {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
+    // Members can only update tasks assigned to them or created by them
+    if (req.user.role !== 'admin') {
+      const isAssigned = task.assignedTo?.equals(req.user._id);
+      const isCreator = task.createdBy?.equals(req.user._id);
+      if (!isAssigned && !isCreator) {
+        return res.status(403).json({ message: 'Not authorized to update this task' });
+      }
+    }
+
     const { title, description, assignedTo, status, priority, dueDate, tags } = req.body;
-    Object.assign(task, { title, description, assignedTo, status, priority, dueDate, tags });
+    const update = { status };
+    // Only admins can reassign tasks or change all fields
+    if (req.user.role === 'admin') {
+      Object.assign(update, { title, description, assignedTo, priority, dueDate, tags });
+    } else {
+      // Members can update title, description, priority, dueDate, tags on their own tasks
+      Object.assign(update, { title, description, priority, dueDate, tags });
+    }
+    Object.assign(task, update);
     await task.save();
 
     await task.populate('assignedTo', 'name email');
@@ -101,34 +183,6 @@ router.delete('/:id', auth, async (req, res) => {
 
     await task.deleteOne();
     res.json({ message: 'Task deleted' });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// GET /api/tasks/dashboard/stats
-router.get('/dashboard/stats', auth, async (req, res) => {
-  try {
-    const allTasks = await Task.find()
-      .populate('project', 'name owner members');
-
-    const myTasks = allTasks.filter(t => {
-      const p = t.project;
-      if (!p) return false;
-      return p.owner?.equals?.(req.user._id) ||
-        p.members?.some(m => m.equals?.(req.user._id)) ||
-        t.assignedTo?.equals?.(req.user._id);
-    });
-
-    const now = new Date();
-    res.json({
-      total: myTasks.length,
-      todo: myTasks.filter(t => t.status === 'todo').length,
-      inProgress: myTasks.filter(t => t.status === 'in-progress').length,
-      done: myTasks.filter(t => t.status === 'done').length,
-      overdue: myTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== 'done').length,
-      critical: myTasks.filter(t => t.priority === 'critical' && t.status !== 'done').length
-    });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

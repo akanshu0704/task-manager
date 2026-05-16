@@ -7,9 +7,11 @@ const Task = require('../models/Task');
 // GET /api/projects
 router.get('/', auth, async (req, res) => {
   try {
-    const projects = await Project.find({
-      $or: [{ owner: req.user._id }, { members: req.user._id }]
-    })
+    const query = req.user.role === 'admin'
+      ? {}  // Admin sees all projects
+      : { $or: [{ owner: req.user._id }, { members: req.user._id }] };
+
+    const projects = await Project.find(query)
       .populate('owner', 'name email')
       .populate('members', 'name email')
       .sort({ createdAt: -1 });
@@ -49,7 +51,7 @@ router.get('/:id', auth, async (req, res) => {
 
     const isMember = project.owner._id.equals(req.user._id) ||
       project.members.some(m => m._id.equals(req.user._id));
-    if (!isMember) return res.status(403).json({ message: 'Access denied' });
+    if (!isMember && req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
 
     res.json(project);
   } catch (err) {
@@ -62,7 +64,9 @@ router.patch('/:id', auth, async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
-    if (!project.owner.equals(req.user._id)) return res.status(403).json({ message: 'Only owner can update' });
+    if (!project.owner.equals(req.user._id) && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only owner can update' });
+    }
 
     const { name, description, status, color, deadline, members } = req.body;
     Object.assign(project, { name, description, status, color, deadline, members });
