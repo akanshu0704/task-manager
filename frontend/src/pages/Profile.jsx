@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Mail, Shield, Calendar, Lock, Save, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Lock, Save, Eye, EyeOff, CheckCircle, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
@@ -17,7 +18,8 @@ const getGradient = (name = '') => AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_
 const getInitials = (name = '') => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
 export default function Profile() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState(user?.name || '');
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -228,6 +230,34 @@ export default function Profile() {
             Change Password
           </motion.button>
         </form>
+      </motion.div>
+
+      {/* Sign Out */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="glass rounded-3xl p-6 border border-red-500/10"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-white font-semibold">Sign Out</h3>
+            <p className="text-slate-500 text-xs mt-0.5">You will be redirected to the login page.</p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => {
+              logout();
+              toast.success('Signed out successfully');
+              navigate('/login');
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 text-sm font-semibold transition-all"
+          >
+            <LogOut size={15} />
+            Sign Out
+          </motion.button>
+        </div>
       </motion.div>
     </div>
   );
