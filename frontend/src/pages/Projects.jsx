@@ -204,13 +204,15 @@ export default function Projects() {
               className="input-glass w-full rounded-xl pl-9 pr-4 py-2.5 text-sm"
             />
           </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            onClick={() => setShowModal(true)}
-            className="btn-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 whitespace-nowrap"
-          >
-            <Plus size={16} /> New Project
-          </motion.button>
+          {user?.role === 'admin' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              onClick={() => setShowModal(true)}
+              className="btn-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 whitespace-nowrap"
+            >
+              <Plus size={16} /> New Project
+            </motion.button>
+          )}
         </div>
       </div>
 
@@ -228,7 +230,7 @@ export default function Projects() {
           <p className="text-slate-600 text-sm mt-1">
             {!search && 'Create your first project to get started'}
           </p>
-          {!search && (
+          {!search && user?.role === 'admin' && (
             <button onClick={() => setShowModal(true)} className="mt-4 text-sm text-indigo-400 hover:text-indigo-300">
               + Create project
             </button>
@@ -308,7 +310,7 @@ export default function Projects() {
       )}
 
       <AnimatePresence>
-        {showModal && (
+        {showModal && user?.role === 'admin' && (
           <ProjectModal
             onClose={() => setShowModal(false)}
             onSave={handleCreate}

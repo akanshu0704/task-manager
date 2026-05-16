@@ -297,12 +297,6 @@ function MemberDashboard({ user, stats, recentTasks, projects }) {
             {stats.overdue > 0 ? `${stats.overdue} overdue task${stats.overdue !== 1 ? 's' : ''}` : 'All your tasks on track'}
           </p>
         </div>
-        <Link to="/tasks/new">
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            className="btn-primary text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2">
-            <Plus size={16} /> New Task
-          </motion.button>
-        </Link>
       </motion.div>
 
       {/* My stats */}

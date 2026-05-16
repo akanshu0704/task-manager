@@ -253,13 +253,15 @@ export default function Tasks() {
               <option key={p} value={p} className="bg-slate-900 capitalize">{p === 'all' ? 'All Priority' : p}</option>
             ))}
           </select>
-          <motion.button
-            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            onClick={() => setShowModal(true)}
-            className="btn-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 whitespace-nowrap"
-          >
-            <Plus size={16} /> New Task
-          </motion.button>
+          {user?.role === 'admin' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              onClick={() => setShowModal(true)}
+              className="btn-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 whitespace-nowrap"
+            >
+              <Plus size={16} /> New Task
+            </motion.button>
+          )}
         </div>
       </div>
 
@@ -275,7 +277,7 @@ export default function Tasks() {
           <p className="text-slate-600 text-sm mt-1">
             {search || statusFilter !== 'all' || priorityFilter !== 'all'
               ? 'Try adjusting your filters'
-              : 'Create your first task to get started'}
+              : user?.role === 'admin' ? 'Create your first task to get started' : 'No tasks assigned to you yet'}
           </p>
         </motion.div>
       ) : (
@@ -347,12 +349,14 @@ export default function Tasks() {
                       <option value="review" className="bg-slate-900">Review</option>
                       <option value="done" className="bg-slate-900">Done</option>
                     </select>
-                    <button
-                      onClick={() => handleDelete(task._id)}
-                      className="w-7 h-7 glass rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-slate-600 hover:text-red-400 transition-all"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    {user?.role === 'admin' && (
+                      <button
+                        onClick={() => handleDelete(task._id)}
+                        className="w-7 h-7 glass rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-slate-600 hover:text-red-400 transition-all"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               );

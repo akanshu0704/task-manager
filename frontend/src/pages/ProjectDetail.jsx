@@ -24,7 +24,7 @@ const PRIORITY_COLORS = {
   critical: 'text-red-400 bg-red-400/10'
 };
 
-function TaskCard({ task, onDelete, onStatusChange }) {
+function TaskCard({ task, onDelete, onStatusChange, isAdmin, currentUserId }) {
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
 
   return (
@@ -40,12 +40,14 @@ function TaskCard({ task, onDelete, onStatusChange }) {
         <p className={`text-sm font-medium flex-1 ${task.status === 'done' ? 'line-through text-slate-500' : 'text-white'}`}>
           {task.title}
         </p>
-        <button
-          onClick={() => onDelete(task._id)}
-          className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all flex-shrink-0"
-        >
-          <Trash2 size={12} />
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => onDelete(task._id)}
+            className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all flex-shrink-0"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
 
       {task.description && (
@@ -69,15 +71,17 @@ function TaskCard({ task, onDelete, onStatusChange }) {
         )}
       </div>
 
-      {/* Quick status change */}
-      <select
-        value={task.status}
-        onChange={e => onStatusChange(task._id, e.target.value)}
-        onClick={e => e.stopPropagation()}
-        className="mt-2 w-full text-xs input-glass rounded-lg px-2 py-1"
-      >
-        {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-      </select>
+      {/* Quick status change — admin always, member only on their own task */}
+      {(isAdmin || task.assignedTo?._id === currentUserId) && (
+        <select
+          value={task.status}
+          onChange={e => onStatusChange(task._id, e.target.value)}
+          onClick={e => e.stopPropagation()}
+          className="mt-2 w-full text-xs input-glass rounded-lg px-2 py-1"
+        >
+          {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
+      )}
     </motion.div>
   );
 }
@@ -303,13 +307,15 @@ export default function ProjectDetail() {
             <span>{tasks.length} tasks · {tasks.filter(t => t.status === 'done').length} done</span>
           </div>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-          onClick={() => setShowAddTask(true)}
-          className="btn-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2"
-        >
-          <Plus size={16} /> Add Task
-        </motion.button>
+        {user?.role === 'admin' && (
+          <motion.button
+            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            onClick={() => setShowAddTask(true)}
+            className="btn-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2"
+          >
+            <Plus size={16} /> Add Task
+          </motion.button>
+        )}
       </div>
 
       {/* Kanban board */}
@@ -335,6 +341,8 @@ export default function ProjectDetail() {
                       task={task}
                       onDelete={handleDeleteTask}
                       onStatusChange={handleStatusChange}
+                      isAdmin={user?.role === 'admin'}
+                      currentUserId={user?._id || user?.id}
                     />
                   ))}
                 </AnimatePresence>
@@ -346,19 +354,21 @@ export default function ProjectDetail() {
                 )}
               </div>
 
-              <button
-                onClick={() => setShowAddTask(true)}
-                className="mt-3 w-full py-2 text-xs text-slate-600 hover:text-slate-400 flex items-center justify-center gap-1 rounded-xl hover:bg-white/5 transition-all"
-              >
-                <Plus size={12} /> Add task
-              </button>
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => setShowAddTask(true)}
+                  className="mt-3 w-full py-2 text-xs text-slate-600 hover:text-slate-400 flex items-center justify-center gap-1 rounded-xl hover:bg-white/5 transition-all"
+                >
+                  <Plus size={12} /> Add task
+                </button>
+              )}
             </div>
           </div>
         ))}
       </div>
 
       <AnimatePresence>
-        {showAddTask && (
+        {showAddTask && user?.role === 'admin' && (
           <AddTaskModal
             projectId={id}
             users={users}
