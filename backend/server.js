@@ -18,7 +18,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'Server r
 // Serve React frontend (no CORS needed — same origin)
 const frontendDist = path.join(__dirname, 'public');
 app.use(express.static(frontendDist));
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
